@@ -2,6 +2,7 @@ from socket import *
 import argparse
 import threading
 import sys
+from datetime import datetime, timedelta
 
 clients = {}  # global map of username : connection socket
 clientsLock = threading.Lock()  # threading lock for the clients dictionary
@@ -34,11 +35,22 @@ def broadcast_to_specific_client(message, receivingUser):
         clients[receivingUser].send(message.encode())
 
 '''
-Helper method for modifying the text to include shortcuts.
+Helper method for handling shortcuts
 '''
-def embed_shortcuts(text):
-    return
-
+def shortcut_replacement(chat):
+    if chat == ":)":
+        chat = "[Feeling Joyful]"
+    elif chat == ":(":
+        chat = "[Feeling Unhappy]"
+    elif chat == ":mytime":
+        # display current time in 2025 Jan 10 08:23:14 Fri format
+        time = datetime.now()
+        chat = time.strftime("%Y %B %d %H:%M:%S %A")
+    elif chat == ":+1hr":
+        time = datetime.now() + timedelta(hours=1)
+        chat = time.strftime("%Y %B %d %H:%M:%S %A")
+    
+    return chat
 
 '''
 Handling an authenticated connection socket.
@@ -67,43 +79,51 @@ def client_thread(connectionSocket, addr, username, password):
     while True:
         chat = connectionSocket.recv(1024).decode()
 
-        # Closing connection socket (don't need to handle forcible termination)
-        if chat == ":Exit":
-            leavingMessage = f"{username} left the chatroom"
-            print(leavingMessage)
-            sys.stdout.flush()
-            broadcast_to_all_clients(leavingMessage, username)
+        try:
+            # Handle user leaving chatroom
+            if chat == ":Exit":
+                # Notify server & clients
+                leavingMessage = f"{username} left the chatroom"
+                print(leavingMessage)
+                sys.stdout.flush()
+                broadcast_to_all_clients(leavingMessage, username)
 
-            # Delete user from clients dictionary
-            with clientsLock:
-                del clients[username]
+                # Delete user from clients dictionary
+                with clientsLock:
+                    del clients[username]
 
-            connectionSocket.close()
-            break
-        elif chat == ":)":
-            # [Feeling Joyful]
-            return
-        elif chat == ":(":
-            # [Feeling Unhappy]
-            return
-        elif chat == ":mytime":
-            # display current time in 2025 Jan 10 08:23:14 Fri format
-            return
-        elif chat == ":+1hr":
-            # display current time + 1 hour
-            return
-        elif chat.startswith(":dm"):
-            # dm specific user - :dm <receiving user> <message>
-            _, receivingUser, message = chat.split(" ")
-            print(message)
+                # Close connection socket
+                connectionSocket.close()
+                break
+
+            # Sending messages
+            if chat.startswith(":dm"): # Handling direct messages - :dm <receiving user> <message>
+                # Parse and format input
+                chat = chat[4:]
+                receivingUser = chat[:chat.find(" ")]
+                chat = shortcut_replacement(chat[chat.find(" ") + 1:])
+
+                # Create messages
+                serverMessage = f"{username} to {receivingUser}: {chat}"
+                receiverMessage = f"{username}: {chat}"
+
+                # Send messages
+                print(serverMessage)
+                sys.stdout.flush()
+                broadcast_to_specific_client(receiverMessage, receivingUser)
+            else: # Handling regular messages
+                # Format input
+                chat = shortcut_replacement(chat)
+                
+                # Broadcasting chat messages
+                chatMessage = f"{username}: {chat}"
+                print(chatMessage)
+                sys.stdout.flush()
+                broadcast_to_all_clients(chatMessage, username)
+        except Exception as e:
+            print(f"Error: {e}")
             sys.stdout.flush()
-            broadcast_to_all_clients(message, receivingUser)
-        else:
-            chat = embed_shortcuts(chat)
-            chatMessage = f"{username}: {chat}"
-            print(chatMessage)
-            sys.stdout.flush()
-            broadcast_to_all_clients(chatMessage, username)
+
 
 '''
 Starts server socket and authenticates connection sockets.
