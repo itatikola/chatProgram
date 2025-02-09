@@ -1,6 +1,7 @@
 from socket import *
 import argparse
 import threading
+import sys
 
 clients = {}  # global map of username : connection socket
 clientsLock = threading.Lock()  # threading lock for the clients dictionary
@@ -12,6 +13,7 @@ def print_all_clients():
     with clientsLock:
         for user in clients:
             print(user, clients[user])
+            sys.stdout.flush()
 
 '''
 Thread-safe helper method for broadcasting the same message to all clients.
@@ -32,6 +34,13 @@ def broadcast_to_specific_client(message, receivingUser):
         clients[receivingUser].send(message.encode())
 
 '''
+Helper method for modifying the text to include shortcuts.
+'''
+def embed_shortcuts(text):
+    return
+
+
+'''
 Handling an authenticated connection socket.
 '''
 def client_thread(connectionSocket, addr, username, password):
@@ -41,6 +50,7 @@ def client_thread(connectionSocket, addr, username, password):
 
     # 5.1/5.2 mandatory print statement on server
     print(existingClientMessage)
+    sys.stdout.flush()
 
     with clientsLock:
         # Notify new client (that they successfully were authenticated)
@@ -58,9 +68,10 @@ def client_thread(connectionSocket, addr, username, password):
         chat = connectionSocket.recv(1024).decode()
 
         # Closing connection socket (don't need to handle forcible termination)
-        if chat == ':Exit':
+        if chat == ":Exit":
             leavingMessage = f"{username} left the chatroom"
             print(leavingMessage)
+            sys.stdout.flush()
             broadcast_to_all_clients(leavingMessage, username)
 
             # Delete user from clients dictionary
@@ -69,9 +80,29 @@ def client_thread(connectionSocket, addr, username, password):
 
             connectionSocket.close()
             break
+        elif chat == ":)":
+            # [Feeling Joyful]
+            return
+        elif chat == ":(":
+            # [Feeling Unhappy]
+            return
+        elif chat == ":mytime":
+            # display current time in 2025 Jan 10 08:23:14 Fri format
+            return
+        elif chat == ":+1hr":
+            # display current time + 1 hour
+            return
+        elif chat.startswith(":dm"):
+            # dm specific user - :dm <receiving user> <message>
+            _, receivingUser, message = chat.split(" ")
+            print(message)
+            sys.stdout.flush()
+            broadcast_to_all_clients(message, receivingUser)
         else:
+            chat = embed_shortcuts(chat)
             chatMessage = f"{username}: {chat}"
             print(chatMessage)
+            sys.stdout.flush()
             broadcast_to_all_clients(chatMessage, username)
 
 '''
@@ -85,6 +116,7 @@ def start_server(port, passcode):
     # 5.1/5.2 - mandatory print statement
     statement1 = "Server started on port " + str(port) + ". Accepting connections"
     print(statement1)
+    sys.stdout.flush()
 
     serverSocket.listen()  # defaults to maximum of 128 or 512 in the connection queue
 

@@ -1,6 +1,7 @@
 from socket import *
 import argparse
 import threading
+import sys
 
 '''
 Handles receiving and displaying messages from the server.
@@ -10,6 +11,7 @@ def receive_messages(clientSocket, username):
     while True:
         message = clientSocket.recv(1024).decode()
         print(message)
+        sys.stdout.flush()
 
 '''
 Initiates the client socket, mimicking the idea of the client "joining the chatroom."
@@ -30,6 +32,7 @@ def join_chatroom(hostname, port, username, password):
     if serverResponse == "Valid password":
         # 5.1/5.2 - mandatory output line
         print("Connected to", hostname, "on port", port)
+        sys.stdout.flush()
 
         # start new thread for receiving messages
         receive_thread = threading.Thread(target=receive_messages, args=(clientSocket, username))
@@ -43,7 +46,6 @@ def join_chatroom(hostname, port, username, password):
 
             if sendingMessage == ":Exit":
                 break
-
 
         clientSocket.close()
 
