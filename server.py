@@ -1,10 +1,13 @@
 from socket import *
 import argparse
+import threading
+
+def client_thread(connectionSocket, addr, username, password):
+    # print("INDIRA: starting client thread for user", username, "with address", addr)
+    connectionSocket.close()
+
 
 def start_server(port, passcode):
-    if False:
-        return
-    
     # create socket - using IPv4, specifying TCP
     serverSocket = socket(AF_INET, SOCK_STREAM)
     serverSocket.bind(('127.0.0.1', port))
@@ -13,29 +16,41 @@ def start_server(port, passcode):
     statement1 = "Server started on port " + str(port) + ". Accepting connections"
     print(statement1)
 
-    serverSocket.listen(1)  # 1 = maximum number of queued connections
+    serverSocket.listen()  # defaults to maximum of 128 or 512 in the connection queue
     while True:
         # establishing connection between clientSocket that "knocked" and connectionSocket
         connectionSocket, addr = serverSocket.accept()
 
-        # receive messages from clientSocket
-        loginInfo = connectionSocket.recv(1024).decode().split(" ")
-        username, password = loginInfo[0], loginInfo[1]
+        try:
+            loginInfo = connectionSocket.recv(1024).decode().split(" ")
 
-        if password == passcode:
-            responseMessage = "Valid password"
-            connectionSocket.send(responseMessage.encode())
+            # Ensure loginInfo contains both username and password
+            if len(loginInfo) < 2:
+                connectionSocket.send("Invalid input".encode())
+                connectionSocket.close()
+                continue  # Wait for next client
 
-            # 5.1/5.2 - mandatory print statement
-            print(username, "joined the chatroom")
-        else:
-            responseMessage = "Invalid password"
-            connectionSocket.send(responseMessage.encode())
+            username, password = loginInfo[0], loginInfo[1]
 
-        # close connectionSocket
-        connectionSocket.close()
+            if password == passcode:
+                responseMessage = "Valid password"
+                connectionSocket.send(responseMessage.encode())
 
+                print(f"{username} joined the chatroom")
 
+                # Start client thread only after successful login
+                new_client_thread = threading.Thread(target=client_thread, args=(connectionSocket, addr, username, password))
+                new_client_thread.start()
+            else:
+                responseMessage = "Invalid password"
+                connectionSocket.send(responseMessage.encode())
+                connectionSocket.close()
+        
+        except Exception as e:
+            print(f"Error handling client {addr}: {e}")
+            connectionSocket.close()
+
+        # close connectionSocket - MOVED TO client_thread
 
 if __name__ == "__main__":
     # set up argument parser for 'python3 server.py -start -port <port> -passcode <passcode>'

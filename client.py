@@ -21,7 +21,7 @@ def join_chatroom(hostname, port, username, password):
         # 5.1/5.2 - mandatory output line
         print("Connected to", hostname, "on port", port)
         while True:
-            userInput = input("SYS - Type a message:\n")
+            userInput = input("SYS - Type a message:")
 
     # close client
     clientSocket.close()
