@@ -1,5 +1,15 @@
 from socket import *
 import argparse
+import threading
+
+'''
+Handles receiving and displaying messages from the server.
+'''
+def receive_messages(clientSocket, username):
+    # print("INDIRA: started receiving messages thread for", username)
+    while True:
+        message = clientSocket.recv(1024).decode()
+        print(message)
 
 '''
 Initiates the client socket, mimicking the idea of the client "joining the chatroom."
@@ -20,11 +30,22 @@ def join_chatroom(hostname, port, username, password):
     if serverResponse == "Valid password":
         # 5.1/5.2 - mandatory output line
         print("Connected to", hostname, "on port", port)
-        while True:
-            userInput = input("SYS - Type a message:")
 
-    # close client
-    clientSocket.close()
+        # start new thread for receiving messages
+        receive_thread = threading.Thread(target=receive_messages, args=(clientSocket, username))
+        receive_thread.daemon = True
+        receive_thread.start()
+
+        # reserve main thread for sending messages
+        while True:
+            sendingMessage = input("")
+            clientSocket.send(sendingMessage.encode())
+
+            if sendingMessage == ":Exit":
+                break
+
+
+        clientSocket.close()
 
 
 if __name__ == "__main__":

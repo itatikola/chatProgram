@@ -2,11 +2,81 @@ from socket import *
 import argparse
 import threading
 
+clients = {}  # global map of username : connection socket
+clientsLock = threading.Lock()  # threading lock for the clients dictionary
+
+'''
+Thread-safe helper method for displaying the current clients dictionary.
+'''
+def print_all_clients():
+    with clientsLock:
+        for user in clients:
+            print(user, clients[user])
+
+'''
+Thread-safe helper method for broadcasting the same message to all clients.
+
+If there is a sending user, do not broadcast to this user.
+'''
+def broadcast_to_all_clients(message, sendingUser=None):
+    with clientsLock:
+        for user in clients:
+            if user != sendingUser:
+                clients[user].send(message.encode())
+
+'''
+Thread-safe helper method for broadcasting the same message to a specific client.
+'''
+def broadcast_to_specific_client(message, receivingUser):
+    with clientsLock:
+        clients[receivingUser].send(message.encode())
+
+'''
+Handling an authenticated connection socket.
+'''
 def client_thread(connectionSocket, addr, username, password):
     # print("INDIRA: starting client thread for user", username, "with address", addr)
-    connectionSocket.close()
+    newClientMessage = "Valid password"
+    existingClientMessage = username + " joined the chatroom"
 
+    # 5.1/5.2 mandatory print statement on server
+    print(existingClientMessage)
 
+    with clientsLock:
+        # Notify new client (that they successfully were authenticated)
+        connectionSocket.send(newClientMessage.encode())
+        # Add existing client to clients dictionary
+        clients[username] = connectionSocket
+    
+    # Notify existing clients that the new client joined
+    broadcast_to_all_clients(existingClientMessage, username)
+    
+    # print_all_clients()
+    
+    # Handle incoming messages from clients, send out to all other clients
+    while True:
+        chat = connectionSocket.recv(1024).decode()
+
+        # Closing connection socket (don't need to handle forcible termination)
+        if chat == ':Exit':
+            leavingMessage = f"{username} left the chatroom"
+            print(leavingMessage)
+            broadcast_to_all_clients(leavingMessage, username)
+
+            # Delete user from clients dictionary
+            with clientsLock:
+                del clients[username]
+
+            connectionSocket.close()
+            break
+        else:
+            chatMessage = f"{username}: {chat}"
+            print(chatMessage)
+            broadcast_to_all_clients(chatMessage, username)
+
+'''
+Starts server socket and authenticates connection sockets.
+'''
 def start_server(port, passcode):
     # create socket - using IPv4, specifying TCP
     serverSocket = socket(AF_INET, SOCK_STREAM)
@@ -17,6 +87,7 @@ def start_server(port, passcode):
     print(statement1)
 
     serverSocket.listen()  # defaults to maximum of 128 or 512 in the connection queue
+
     while True:
         # establishing connection between clientSocket that "knocked" and connectionSocket
         connectionSocket, addr = serverSocket.accept()
@@ -32,18 +103,16 @@ def start_server(port, passcode):
 
             username, password = loginInfo[0], loginInfo[1]
 
+            # Authenticating user
             if password == passcode:
-                responseMessage = "Valid password"
-                connectionSocket.send(responseMessage.encode())
-
-                print(f"{username} joined the chatroom")
-
                 # Start client thread only after successful login
                 new_client_thread = threading.Thread(target=client_thread, args=(connectionSocket, addr, username, password))
+                new_client_thread.daemon = True
                 new_client_thread.start()
+
             else:
-                responseMessage = "Invalid password"
-                connectionSocket.send(responseMessage.encode())
+                newClientMessage = "Invalid password"
+                connectionSocket.send(newClientMessage.encode())
                 connectionSocket.close()
         
         except Exception as e:
