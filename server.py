@@ -7,20 +7,30 @@ def start_server(port, passcode):
     
     # create socket - using IPv4, specifying TCP
     serverSocket = socket(AF_INET, SOCK_STREAM)
-    serverSocket.bind(('', port))
-    print("Server started on port", port, ". Accepting connections")  # mandatory print statement
+    serverSocket.bind(('127.0.0.1', port))
+
+    # 5.1/5.2 - mandatory print statement
+    statement1 = "Server started on port " + str(port) + ". Accepting connections"
+    print(statement1)
+
     serverSocket.listen(1)  # 1 = maximum number of queued connections
     while True:
         # establishing connection between clientSocket that "knocked" and connectionSocket
         connectionSocket, addr = serverSocket.accept()
 
-        print("Heard from client")
-
         # receive messages from clientSocket
-        sentence = connectionSocket.recv(1024).decode()
-        #print("<username> joined the chatroom")  # mandatory print statement
-        capitalizedSentence = sentence.upper()
-        connectionSocket.send(capitalizedSentence.encode())
+        loginInfo = connectionSocket.recv(1024).decode().split(" ")
+        username, password = loginInfo[0], loginInfo[1]
+
+        if password == passcode:
+            responseMessage = "Valid password"
+            connectionSocket.send(responseMessage.encode())
+
+            # 5.1/5.2 - mandatory print statement
+            print(username, "joined the chatroom")
+        else:
+            responseMessage = "Invalid password"
+            connectionSocket.send(responseMessage.encode())
 
         # close connectionSocket
         connectionSocket.close()

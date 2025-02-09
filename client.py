@@ -1,25 +1,29 @@
 from socket import *
 import argparse
 
-def start_client(hostname, port, username, password):
+'''
+Initiates the client socket, mimicking the idea of the client "joining the chatroom."
+'''
+def join_chatroom(hostname, port, username, password):
     # create socket - using IPv4, specifying TCP
     clientSocket = socket(AF_INET, SOCK_STREAM)
 
     # establishing connection to server
     clientSocket.connect((hostname, port))
-    print("Connected to", hostname, "on port", port)  # mandatory output line (Section 5.1)
-
-    # get data to send to server
-    sentence = input("Input lowercase sentence:")
-
-    # send data to server
-    clientSocket.send(sentence.encode())
+    
+    # send login information to server
+    loginInfo = username + " " + password
+    clientSocket.send(loginInfo.encode())
 
     # receive data from server
-    modifiedSentence = clientSocket.recv(1024)
+    serverResponse = clientSocket.recv(1024).decode()
+    if serverResponse == "Valid password":
+        # 5.1/5.2 - mandatory output line
+        print("Connected to", hostname, "on port", port)
+        while True:
+            userInput = input("SYS - Type a message:\n")
 
     # close client
-    print("From Server: ", modifiedSentence.decode())
     clientSocket.close()
 
 
@@ -35,4 +39,4 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     if args.join:
-        start_client(args.host, args.port, args.username, args.password)
+        join_chatroom(args.host, args.port, args.username, args.password)
